@@ -1,0 +1,212 @@
+<html>
+<head>
+	<script src="jquery-1.10.2.min.js"></script>
+	<script src="ui/jquery-ui.js"></script>
+	<style>
+		.led-row {
+			
+		}
+		
+		.led-cell {
+			background-color:black;
+			margin:2
+			display:block;
+			width:30px;
+			height:20px;
+			cursor:hand;
+		}
+		
+		.led-demo {
+			background:black;
+			margin:2;
+			display:block;
+			width:20px;
+			height:20px;
+			cursor:hand;
+		}
+		
+		.swatch-color {
+			margin:2
+			display:block;
+			width:20px;
+			height:20px;
+			cursor:hand;
+		}
+	</style>
+	<script>
+		var numCols = 0;
+		var numRows = 0;
+		var currentSwatchColor = "white";
+		
+		var patternConcurrent = true;
+
+		function createLedRow() {
+			return "<tr class='led-row' />";
+		}
+		
+		function createLedCell() {
+			return "<td class='led-cell' onClick='setLedCellColor(this)'></td>";
+		}
+		
+		function setLedCellColor(cell) {
+			$(cell).css("background", currentSwatchColor);
+			changed();
+		}
+		
+		function setSelectedSwatchColor(color) {
+			currentSwatchColor = color;
+		}
+		
+		function buildSwatch() {
+			colors = ["black", "white", "red", "green", "blue", "yellow", "orange", "purple"]
+			
+			$swatch = $("#swatch");
+			
+			for (i=0;i<colors.length;i++) {
+				$swatch.append("<tr><td class='swatch-color' style='background-color:" + colors[i] + "' onClick='setSelectedSwatchColor(\"" + colors[i] + "\")'/></tr>");
+			}
+		}
+		
+		function addRow() {
+			$row = $(createLedRow());
+			
+			for (i=0;i<numCols;i++) {
+				$row.append(createLedCell());
+			}
+			
+			$("#pattern").append($row);
+			numRows++;
+		}
+		
+		function addColumn() {
+			$("#pattern .led-row").append(createLedCell());
+			numCols++;
+			changed();
+		}
+		
+		function reset() {
+			$("#pattern").empty();
+			numRows = 0;
+			numCols = 0;
+			addRow(); addRow();
+			addColumn(); addColumn();
+			changed();
+		}
+		
+		function clearToColor(color) {
+			$("#pattern .led-cell").css("background", color);
+			changed();
+		}
+		
+		$(function() {
+			buildSwatch();
+			reset();
+			demoSetNumLeds(30);
+			demoStart();
+		});
+		
+		var resetDemo = true;
+		var demoNumLeds;
+		var demoCurrRow = 0;
+		var demoCurrGroup = 0;
+		var demoNumGroups = 0;
+		var demoDelay = 100;
+
+		function changed() {
+			resetDemo = true;
+		}
+		
+		function demoSetNumLeds(numLeds) {
+			$demo = $("#demo");
+			
+			$demo.empty();
+			
+			for (i=0;i<numLeds;i++) {
+				$demo.append("<td class='led-demo'> </td>");
+			}
+			
+			demoNumLeds = numLeds;
+		}
+		
+		function demoStart() {
+			setTimeout(demoTick, 100);
+		}
+		
+		function demoTick() {
+			if (resetDemo) {
+				demoCurrRow = 0;
+				demoCurrGroup = 0;
+				demoGroupSize = Math.min(numCols, numRows);
+				demoNumGroups = demoNumLeds / demoGroupSize;
+				demoDelay = $("#demoDelay").val();
+				patternConcurrent = $("#concurrent").is(":checked");
+				console.log("num groups : " + demoNumGroups);
+				demoClearToBlack();
+				resetDemo = false;
+			}
+			if (patternConcurrent) {
+				demoSetAll(demoCurrRow);
+			} else {
+				demoSetGroup(demoCurrGroup, demoCurrRow);
+			}
+
+			demoCurrRow++;
+			
+			if (demoCurrRow == numRows) {
+				demoCurrGroup++;
+				demoCurrRow = 0;
+			}
+			
+			if (demoCurrGroup >= demoNumGroups) {
+				demoCurrGroup = 0;
+			}
+			
+			setTimeout(demoTick, demoDelay);
+		}
+		
+		function demoSetAll(row) {
+			$patternRow = $("#pattern .led-row").slice(row, row+1).find(".led-cell");
+
+			$group = $("#demo .led-demo");
+			$group.each(function(i,v) { $(v).css("background", $($patternRow.get(i%numCols)).css("background")); });
+		}
+
+		function demoSetGroup(group, row) {
+			groupStart = group * demoGroupSize;
+			groupEnd = groupStart + numCols;
+			
+			demoClearToBlack(0, groupStart);
+			demoClearToBlack(groupEnd, demoNumLeds);
+			
+			$group = $("#demo .led-demo").slice(groupStart, groupEnd);
+			$patternRow = $("#pattern .led-row").slice(row, row+1).find(".led-cell");
+			$group.each(function(i,v) { $(v).css("background", $($patternRow.get(i)).css("background")); });
+		}
+		
+		function demoClearToBlack(begin, end) {
+			$("#demo .led-demo").slice(begin, end).css("background", "black");
+		}
+
+	</script>
+</head>
+<body>
+	<button onClick="reset()">Reset</button>
+	<button onClick="clearToColor('black')">Clear</button>
+	<button onClick="addRow()">Add Row</button>
+	<button onClick="addColumn()">Add Column</button>
+	<input id="concurrent" type="checkbox" onchange="changed()">concurrent</input>
+	<table>
+		<tr>
+			<td valign="top"><table id="swatch"></table></td>
+			<td valign="top"><table id="pattern"></table></td>
+		</tr>
+	</table>
+	<table>
+		<tr><td colspan=100>Demo Params: 
+			<label>led count:</label><input id="demoLedCount" type="text" value="30" size=4 onchange="demoSetNumLeds(this.value)"/>
+			<label>delay:</label><input id="demoDelay" type="text" value="100" size=4 onchange="changed()"/>
+			</td></tr>
+		<tr id="demo"></tr>
+	</table>
+</body>
+</html>
