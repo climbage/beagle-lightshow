@@ -2,6 +2,7 @@
 <head>
 	<script src="jquery-1.10.2.min.js"></script>
 	<script src="ui/jquery-ui.js"></script>
+	<link rel="stylesheet" href="ui/smoothness/jquery-ui.css" />
 	<style>
 		.led-row {
 			
@@ -9,7 +10,7 @@
 		
 		.led-cell {
 			background-color:black;
-			margin:2
+			margin:2;
 			display:block;
 			width:30px;
 			height:20px;
@@ -26,7 +27,7 @@
 		}
 		
 		.swatch-color {
-			margin:2
+			margin:2;
 			display:block;
 			width:20px;
 			height:20px;
@@ -39,6 +40,9 @@
 		var currentSwatchColor = "white";
 		
 		var patternConcurrent = true;
+
+		show = {
+		}
 
 		function createLedRow() {
 			return "<tr class='led-row' />";
@@ -76,6 +80,7 @@
 			
 			$("#pattern").append($row);
 			numRows++;
+			changed();
 		}
 		
 		function addColumn() {
@@ -88,8 +93,8 @@
 			$("#pattern").empty();
 			numRows = 0;
 			numCols = 0;
-			addRow(); addRow();
-			addColumn(); addColumn();
+			addRow();
+			addColumn();
 			changed();
 		}
 		
@@ -105,14 +110,25 @@
 			demoStart();
 		});
 		
-		var resetDemo = true;
-		var demoNumLeds;
-		var demoCurrRow = 0;
-		var demoCurrGroup = 0;
-		var demoNumGroups = 0;
-		var demoDelay = 100;
-
 		function changed() {
+			show = {
+				delayFunction : $("#delayFunction").val(),
+				repeat : $("#repeat").is(":checked"),
+				pattern : [[]]
+			}
+
+			$patternRow = $("#pattern .led-row").each(
+				function(r, v) {
+					show.pattern[r] = []
+
+					$(this).find(".led-cell").each(
+						function(c, v) {
+							show.pattern[r][c] = $(this).css("background-color")
+						})
+				})
+
+			$("#arduino_exp").val(JSON.stringify(show))
+
 			resetDemo = true;
 		}
 		
@@ -125,24 +141,86 @@
 				$demo.append("<td class='led-demo'> </td>");
 			}
 			
-			demoNumLeds = numLeds;
+			demo.numLeds = numLeds
+			changed()
 		}
 		
 		function demoStart() {
 			setTimeout(demoTick, 100);
 		}
 		
+		demo = {
+			numLeds : 30
+		}
+
 		function demoTick() {
+			if (resetDemo) {
+				demo.row = 0
+				demo.group = 0
+				demo.rows = show.pattern.length
+				demo.cols = show.pattern[0].length
+				demo.groupSize = Math.min(demo.rows, demo.cols)
+				demo.totalGroupCount = demo.numLeds / demo.groupSize
+				demo.ticks = 0
+				resetDemo = false
+
+				console.log(demo)
+			}
+
+			pixels = []
+			for (i=0;i<demo.numLeds;i++) {
+				pixels[i] = "black"
+			}
+
+			if (show.repeat) 
+			{
+				for(c=0;c<demo.cols;c++) {
+					for (g=0;g<demo.totalGroupCount;g++) {
+						pixels[g * demo.cols + c] = show.pattern[demo.row][c]
+					}
+				}
+			} 
+			else 
+			{
+				start = demo.group * demo.groupSize
+				for (c=0;c<demo.cols;c++) {
+					pixels[start + c] = show.pattern[demo.row][c]
+				}
+			}
+
+			demo.row++
+
+			if (demo.row >= demo.rows) {
+				demo.row = 0
+				demo.group++
+			}
+
+			if (demo.group >= demo.totalGroupCount) {
+				demo.group = 0
+			}
+
+			distance_to_center = Math.abs(demo.group - demo.totalGroupCount/2)
+
+			eval("var delay = function(t,c) { return " + show.delayFunction + "}")
+
+			$("#demo .led-demo").each(function (i) { $(this).css("background", pixels[i]) })
+
+			demo.ticks++
+			setTimeout(demoTick, delay(demo.ticks, distance_to_center))
+		}
+
+		function demoTick1() {
 			if (resetDemo) {
 				demoCurrRow = 0;
 				demoCurrGroup = 0;
 				demoGroupSize = Math.min(numCols, numRows);
 				demoNumGroups = demoNumLeds / demoGroupSize;
-				demoDelay = $("#demoDelay").val();
+				demoDelay = $( "#demoDelay").val();
 				patternConcurrent = $("#concurrent").is(":checked");
 				console.log("num groups : " + demoNumGroups);
 				demoClearToBlack();
 				resetDemo = false;
+				_i = 0;
 			}
 			if (patternConcurrent) {
 				demoSetAll(demoCurrRow);
@@ -161,7 +239,15 @@
 				demoCurrGroup = 0;
 			}
 			
-			setTimeout(demoTick, demoDelay);
+			try {
+				delay = eval(demoDelay);
+			} catch (e) {
+				delay = 100;
+			}
+
+			_i++;
+
+			setTimeout(demoTick, delay);
 		}
 		
 		function demoSetAll(row) {
@@ -181,8 +267,10 @@
 			$group = $("#demo .led-demo").slice(groupStart, groupEnd);
 			$patternRow = $("#pattern .led-row").slice(row, row+1).find(".led-cell");
 			$group.each(function(i,v) { $(v).css("background", $($patternRow.get(i)).css("background")); });
+
+			_s = Math.abs(demoNumGroups/2 - group);
 		}
-		
+
 		function demoClearToBlack(begin, end) {
 			$("#demo .led-demo").slice(begin, end).css("background", "black");
 		}
@@ -194,19 +282,27 @@
 	<button onClick="clearToColor('black')">Clear</button>
 	<button onClick="addRow()">Add Row</button>
 	<button onClick="addColumn()">Add Column</button>
-	<input id="concurrent" type="checkbox" onchange="changed()">concurrent</input>
 	<table>
 		<tr>
 			<td valign="top"><table id="swatch"></table></td>
 			<td valign="top"><table id="pattern"></table></td>
 		</tr>
 	</table>
+	<br/>
+	<label>delay f(t,c):</label><input id="delayFunction" type="text" value="t/4" size=10 onchange="changed()"/><span style="font-style:italic">(<b>t</b>=ticks,<b>c</b>=dist from center)</span>
+	<br/>
+	<label>repeat</label><input id="repeat" type="checkbox" value="1" size=10 onchange="changed()" />
 	<table>
 		<tr><td colspan=100>Demo Params: 
 			<label>led count:</label><input id="demoLedCount" type="text" value="30" size=4 onchange="demoSetNumLeds(this.value)"/>
-			<label>delay:</label><input id="demoDelay" type="text" value="100" size=4 onchange="changed()"/>
 			</td></tr>
 		<tr id="demo"></tr>
 	</table>
+	<!-- dialogs -->
+	<div id="arduino" title="arduino">
+		<textarea cols=90 rows=30 id="arduino_exp">
+
+		</textarea>
+	</div>
 </body>
 </html>
