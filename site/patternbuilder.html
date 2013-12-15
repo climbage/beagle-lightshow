@@ -161,6 +161,8 @@
 				demo.cols = show.pattern[0].length
 				demo.groupSize = Math.min(demo.rows, demo.cols)
 				demo.totalGroupCount = demo.numLeds / demo.groupSize
+				demo.withReverse = $("#demoReverse").is(":checked")
+				demo.reverse = false
 				demo.ticks = 0
 				resetDemo = false
 
@@ -188,6 +190,12 @@
 				}
 			}
 
+			distance_to_center = Math.abs(demo.group - demo.totalGroupCount/2)
+
+			eval("var delay = function(t,c) { return " + show.delayFunction + "}")
+
+			$("#demo .led-demo").each(function (i) { $(this).css("background", pixels[demo.reverse ? demo.numLeds-i-1 : i]) })
+
 			demo.row++
 
 			if (demo.row >= demo.rows) {
@@ -197,83 +205,16 @@
 
 			if (demo.group >= demo.totalGroupCount) {
 				demo.group = 0
+
+				if (demo.withReverse) {
+					demo.reverse = !demo.reverse
+				}
 			}
-
-			distance_to_center = Math.abs(demo.group - demo.totalGroupCount/2)
-
-			eval("var delay = function(t,c) { return " + show.delayFunction + "}")
-
-			$("#demo .led-demo").each(function (i) { $(this).css("background", pixels[i]) })
 
 			demo.ticks++
 			setTimeout(demoTick, delay(demo.ticks, distance_to_center))
 		}
 
-		function demoTick1() {
-			if (resetDemo) {
-				demoCurrRow = 0;
-				demoCurrGroup = 0;
-				demoGroupSize = Math.min(numCols, numRows);
-				demoNumGroups = demoNumLeds / demoGroupSize;
-				demoDelay = $( "#demoDelay").val();
-				patternConcurrent = $("#concurrent").is(":checked");
-				console.log("num groups : " + demoNumGroups);
-				demoClearToBlack();
-				resetDemo = false;
-				_i = 0;
-			}
-			if (patternConcurrent) {
-				demoSetAll(demoCurrRow);
-			} else {
-				demoSetGroup(demoCurrGroup, demoCurrRow);
-			}
-
-			demoCurrRow++;
-			
-			if (demoCurrRow == numRows) {
-				demoCurrGroup++;
-				demoCurrRow = 0;
-			}
-			
-			if (demoCurrGroup >= demoNumGroups) {
-				demoCurrGroup = 0;
-			}
-			
-			try {
-				delay = eval(demoDelay);
-			} catch (e) {
-				delay = 100;
-			}
-
-			_i++;
-
-			setTimeout(demoTick, delay);
-		}
-		
-		function demoSetAll(row) {
-			$patternRow = $("#pattern .led-row").slice(row, row+1).find(".led-cell");
-
-			$group = $("#demo .led-demo");
-			$group.each(function(i,v) { $(v).css("background", $($patternRow.get(i%numCols)).css("background")); });
-		}
-
-		function demoSetGroup(group, row) {
-			groupStart = group * demoGroupSize;
-			groupEnd = groupStart + numCols;
-			
-			demoClearToBlack(0, groupStart);
-			demoClearToBlack(groupEnd, demoNumLeds);
-			
-			$group = $("#demo .led-demo").slice(groupStart, groupEnd);
-			$patternRow = $("#pattern .led-row").slice(row, row+1).find(".led-cell");
-			$group.each(function(i,v) { $(v).css("background", $($patternRow.get(i)).css("background")); });
-
-			_s = Math.abs(demoNumGroups/2 - group);
-		}
-
-		function demoClearToBlack(begin, end) {
-			$("#demo .led-demo").slice(begin, end).css("background", "black");
-		}
 
 	</script>
 </head>
@@ -295,6 +236,7 @@
 	<table>
 		<tr><td colspan=100>Demo Params: 
 			<label>led count:</label><input id="demoLedCount" type="text" value="30" size=4 onchange="demoSetNumLeds(this.value)"/>
+			<label>reverse:</label><input id="demoReverse" type="checkbox" onchange="changed()" />
 			</td></tr>
 		<tr id="demo"></tr>
 	</table>
